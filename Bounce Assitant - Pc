@@ -1,0 +1,70 @@
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local lp = game:GetService("Players").LocalPlayer
+
+-- Configurações
+local BOUNCE_ENABLED = true
+local TOGGLE_KEY = Enum.KeyCode.B
+local MIN_BOUNCE = 73
+local MAX_BOUNCE = 91
+local CONTACT_DIST = -2.8
+local FALL_THRESHOLD = -22
+local TICK_RATE = 1/180
+
+-- Função de Notificação
+local function notify(status)
+    local title = status and "Ativado 🟩" or "Desativado 🟥"
+    local text = status and "Bounce Script está LIGADO" or "Bounce Script está DESLIGADO"
+    
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = 2
+    })
+end
+
+-- Notificação Inicial
+notify(BOUNCE_ENABLED)
+
+local params = RaycastParams.new()
+params.FilterType = Enum.RaycastFilterType.Exclude
+local nextTick = 0
+
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == TOGGLE_KEY then
+        BOUNCE_ENABLED = not BOUNCE_ENABLED
+        notify(BOUNCE_ENABLED) -- Chama a notificação ao alternar
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not BOUNCE_ENABLED then return end
+    
+    local now = os.clock()
+    if now < nextTick then return end
+    nextTick = now + TICK_RATE
+    
+    local char = lp.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChild("Humanoid")
+    
+    if root and hum then
+        local vel = root.AssemblyLinearVelocity
+        
+        if vel.Y < FALL_THRESHOLD then
+            params.FilterDescendantsInstances = {char}
+            local ray = workspace:Raycast(root.Position, Vector3.new(0, CONTACT_DIST, 0), params)
+            
+            if ray and ray.Normal.Y < 0.99 then
+                if vel.Unit:Dot(ray.Normal) < -0.15 then
+                    local randomBounce = math.random(MIN_BOUNCE, MAX_BOUNCE)
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                    hum.Jump = true
+                    root.AssemblyLinearVelocity = Vector3.new(vel.X, randomBounce, vel.Z)
+                    nextTick = os.clock() + 0.25
+                end
+            end
+        end
+    end
+end)
