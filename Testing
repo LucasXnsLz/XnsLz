@@ -11,7 +11,7 @@ if queue_on_teleport or (syn and syn.queue_on_teleport) then
     localPlayer.OnTeleport:Connect(function(State)
         if State == Enum.TeleportState.Started then
             queueFunction([[
-                loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/ref
+                loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/refs/heads/main/Testing'))()
             ]])
         end
     end)
