@@ -1,0 +1,115 @@
+-- =============================================================================
+-- SISTEMA DE AUTO-EXECUÇÃO AO MUDAR DE MAPA
+-- =============================================================================
+local teleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+if queue_on_teleport or (syn and syn.queue_on_teleport) then
+    local queueFunction = queue_on_teleport or syn.queue_on_teleport
+    
+    localPlayer.OnTeleport:Connect(function(State)
+        if State == Enum.TeleportState.Started then
+            queueFunction([[
+                loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/ref
+            ]])
+        end
+    end)
+end
+
+-- =============================================================================
+-- VERIFICAÇÃO DE MAPA BLOQUEADO
+-- =============================================================================
+local placeIdAtual = game.PlaceId
+if placeIdAtual == 92203078151244 or 
+   placeIdAtual == 142823291      or placeIdAtual == 335132309 or 
+   placeIdAtual == 636649648 then
+    return -- Para o script na hora e não executa o resto
+end
+
+-- =============================================================================
+-- SCRIPT PRINCIPAL (SHIFT LOCK NO DPAD DOWN)
+-- =============================================================================
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ContextActionService = game:GetService("ContextActionService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local shiftLockActive = false
+local renderConnection = nil
+local CAMERA_OFFSET = Vector3.new(1.75, 0, 0)
+
+-- BLOQUEIO DO JOGO: Bloqueia o DPad Down para o jogo antes de tudo
+ContextActionService:BindActionAtPriority(
+    "BloqueiaBotaoDoJogo",
+    function()
+        return Enum.ContextActionResult.Sink -- Engole o clique para o jogo não ler
+    end,
+    false,
+    10000, -- Prioridade máxima (Passa por cima de qualquer script do jogo)
+    Enum.KeyCode.DPadDown
+)
+
+local function enableShiftLock()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.AutoRotate = false
+        humanoid.CameraOffset = CAMERA_OFFSET
+        UserInputService.MouseIcon = "rbxasset://textures/MouseLockedCursor.png"
+        UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+        
+        renderConnection = RunService.RenderStepped:Connect(function()
+            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+            
+            local viewportSize = camera.ViewportSize
+            VirtualInputManager:SendMouseMoveEvent(viewportSize.X / 2, viewportSize.Y / 2, workspace)
+            UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+            UserInputService.MouseIcon = "rbxasset://textures/MouseLockedCursor.png"
+            
+            local camLook = camera.CFrame.LookVector
+            local targetRotation = math.atan2(-camLook.X, -camLook.Z)
+            player.Character.HumanoidRootPart.CFrame = CFrame.new(player.Character.HumanoidRootPart.Position) * CFrame.Angles(0, targetRotation, 0)
+        end)
+    end
+end
+
+local function disableShiftLock()
+    if renderConnection then
+        renderConnection:Disconnect()
+        renderConnection = nil
+    end
+    
+    UserInputService.MouseIcon = ""
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    
+    local character = player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.AutoRotate = true
+            humanoid.CameraOffset = Vector3.new(0, 0, 0)
+        end
+    end
+end
+
+-- NOSSO SCRIPT DETECTA: Escuta o botão que o jogo não consegue mais ver
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.DPadDown then
+        shiftLockActive = not shiftLockActive
+        if shiftLockActive then
+            enableShiftLock()
+        else
+            disableShiftLock()
+        end
+    end
+end)
+
+player.CharacterAdded:Connect(function()
+    shiftLockActive = false
+    disableShiftLock()
+end)
