@@ -1,133 +1,178 @@
+-- =========================================================================
+-- SISTEMA DE ESPERA ANTI-CARREGAMENTO LENTO (ESSENCIAL PARA AUTOEXEC)
+-- =========================================================================
+repeat task.wait() until game:IsLoaded()
+
 local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+-- Se o jogador ainda for nil, espera até ele existir
+while not localPlayer do
+    task.wait(0.1)
+    localPlayer = Players.LocalPlayer
+end
+
+-- =========================================================================
+-- CONFIGURAÇÃO INICIAL E LIMPEZA DE SEGURANÇA
+-- =========================================================================
 local Teams = game:GetService("Teams")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
+local TeleportService = game:GetService("TeleportService")
 
-local localPlayer = Players.LocalPlayer
-local playerGui = localPlayer:WaitForChild("PlayerGui")
+local playerGui = localPlayer:WaitForChild("PlayerGui", 20)
+if not playerGui then return end
 
--- LIMPEZA ANTES DE EXECUTAR
-local antigaGui = playerGui:FindFirstChild("ConsoleHeaderGui")
+-- Identificador único para evitar duplicações
+local ID_SCRIPT = "ConsoleHeaderGui"
+
+-- Remove a GUI antiga se ela já existir na tela
+local antigaGui = playerGui:FindFirstChild(ID_SCRIPT)
 if antigaGui then
     antigaGui:Destroy()
 end
 
--- 1. Desativa a lista padrão do Roblox
-local sucess = false
-while not sucess do
-    sucess = pcall(function()
-        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
-    end)
-    task.wait()
+-- Interrompe loops de execuções anteriores para poupar memória
+if _G.CancelarThreadAntigaXnsLz then
+    _G.CancelarThreadAntigaXnsLz()
 end
 
--- 2. Cria a nova interface e CONFIGURA IMEDIATAMENTE
+local scriptAtivo = true
+_G.CancelarThreadAntigaXnsLz = function()
+    scriptAtivo = false
+end
+
+-- =========================================================================
+-- 1. DESATIVA A LISTA PADRÃO DO ROBLOX
+-- =========================================================================
+task.spawn(function()
+    local sucess = false
+    while not sucess and scriptAtivo do
+        sucess = pcall(function()
+            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+        end)
+        task.wait(0.5)
+    end
+end)
+
+-- =========================================================================
+-- 2. CRIAÇÃO E CONFIGURAÇÃO DA INTERFACE (GUI)
+-- =========================================================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "ConsoleHeaderGui"
+screenGui.Name = ID_SCRIPT
 screenGui.ResetOnSpawn = false
-screenGui.DisplayOrder = 999999999 -- Mantém acima de todas as UIs
+screenGui.DisplayOrder = 999999999
 
 local nomeLabel = Instance.new("TextLabel")
--- Trava a âncora no canto superior direito (1, 0)
 nomeLabel.AnchorPoint = Vector2.new(1, 0)
--- Define o tamanho de forma 100% responsiva (0.5 da largura da tela, 0.04 da altura da tela)
-nomeLabel.Size = UDim2.new(0.35, 0, 0.04, 0) 
--- Define a posição usando apenas Scale (98% para a direita, 1% para baixo), sem pixels fixos
-nomeLabel.Position = UDim2.new(0.96, 0, -0.017, 0) 
+nomeLabel.Size = UDim2.new(0.35, 0, 0.04, 0)
+nomeLabel.Position = UDim2.new(0.96, 0, -0.020, 0)
 nomeLabel.Font = Enum.Font.SourceSans
--- Ativa a escala automática do texto para que a letra não mude de tamanho bizarramente em telas 4K ou HD
 nomeLabel.TextScaled = false
 nomeLabel.TextSize = 34
 nomeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 nomeLabel.TextXAlignment = Enum.TextXAlignment.Right
 nomeLabel.BackgroundTransparency = 1
-nomeLabel.Text = "" -- Começa totalmente limpo e invisível
+nomeLabel.Text = ""
 nomeLabel.Parent = screenGui
 
--- =========================================================================
--- SISTEMA DE BORDA DO TEXTO (UIStroke com espessura 40)
--- =========================================================================
 local bordaTexto = Instance.new("UIStroke")
 bordaTexto.Name = "BordaTexto"
-bordaTexto.Thickness = 0.1              -- Define a espessura da borda desejada
-bordaTexto.Color = Color3.fromRGB(0, 0, 0) -- Define a cor preta para a borda
-bordaTexto.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual -- Garante o contorno do texto
+bordaTexto.Thickness = 0.1
+bordaTexto.Color = Color3.fromRGB(0, 0, 0)
+bordaTexto.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
 bordaTexto.Parent = nomeLabel
--- =========================================================================
 
--- Coloca a interface na tela imediatamente
 screenGui.Parent = playerGui
 
--- FUNÇÃO PADRÃO: Altera o texto mantendo o espaçamento original
+-- Função auxiliar para atualizar o placar na tela
 local function atualizarPlacar(textoEsquerda, textoDireita)
+    if not scriptAtivo then return end
     if textoDireita then
-        nomeLabel.Text = tostring(textoEsquerda) .. ":                                          " .. tostring(textoDireita)
+        nomeLabel.Text = tostring(textoEsquerda) .. ":                                  " .. tostring(textoDireita)
     else
         nomeLabel.Text = tostring(textoEsquerda)
     end
 end
 
--- 3. VERIFICAÇÃO DE MAPA (Blox Fruits vs Outros Jogos)
+-- =========================================================================
+-- 3. VERIFICAÇÃO DE MAPA E LEADERSTATS (Blox Fruits vs Outros Jogos)
+-- =========================================================================
 task.spawn(function()
     local placeId = game.PlaceId
-    local leaderstats = localPlayer:WaitForChild("leaderstats", 15)
-    
-    -- Se não encontrar a pasta leaderstats, deixa invisível e para a execução
-    if not leaderstats then
-        nomeLabel.Text = ""
-        return
+    local leaderstats = localPlayer:WaitForChild("leaderstats", 20)
+
+    if not leaderstats or not scriptAtivo then 
+        nomeLabel.Text = "" 
+        return 
     end
 
-    -- IDs dos 3 Seas do Blox Fruits
+    -- IDs de mapas do Blox Fruits (Sea 1, Sea 2 e Sea 3)
     if placeId == 7449423635 or placeId == 4442272183 or placeId == 2753915549 then
-        -- SISTEMA PARA BLOX FRUITS (Fixo como bounty/honor e sem vírgula)
-        local statusPrincipal = leaderstats:WaitForChild("Bounty/Honor", 15)
-        
-        if statusPrincipal then
+        local statusPrincipal = leaderstats:WaitForChild("Bounty/Honor", 20)
+        if statusPrincipal and scriptAtivo then
             atualizarPlacar("bounty/honor", statusPrincipal.Value)
             
-            statusPrincipal.Changed:Connect(function(novoValor)
+            local conexao
+            conexao = statusPrincipal.Changed:Connect(function(novoValor)
+                if not scriptAtivo then conexao:Disconnect() return end
                 atualizarPlacar("bounty/honor", novoValor)
             end)
         else
-            nomeLabel.Text = "" -- Se sumir por algum motivo, não exibe erro na tela
+            nomeLabel.Text = ""
         end
     else
-        -- SISTEMA PARA OUTROS JOGOS (Pega o NOME REAL do status, ex: Cash: 0)
+        -- Para outros jogos, pega o primeiro valor que encontrar no leaderstats
         local statusPrincipal = leaderstats:GetChildren()[1]
-        
-        if statusPrincipal and (statusPrincipal:IsA("ValueBase") or statusPrincipal:IsA("StringValue")) then
+        if statusPrincipal and (statusPrincipal:IsA("ValueBase") or statusPrincipal:IsA("StringValue")) and scriptAtivo then
             atualizarPlacar(statusPrincipal.Name, statusPrincipal.Value)
             
-            statusPrincipal.Changed:Connect(function(novoValor)
+            local conexao
+            conexao = statusPrincipal.Changed:Connect(function(novoValor)
+                if not scriptAtivo then conexao:Disconnect() return end
                 atualizarPlacar(statusPrincipal.Name, novoValor)
             end)
         else
-            nomeLabel.Text = "" -- Caso a pasta exista mas não tenha nenhum valor dentro
+            nomeLabel.Text = ""
         end
     end
 end)
 
--- ATALHO PARA LIGAR/DESLIGAR NA TECLA RIGHT-ALT
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
+-- =========================================================================
+-- 4. ATALHO PARA LIGAR/DESLIGAR (Tecla Right-Alt)
+-- =========================================================================
+local conexaoInput
+conexaoInput = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not scriptAtivo then conexaoInput:Disconnect() return end
     if gameProcessed then return end
+    
     if input.KeyCode == Enum.KeyCode.RightAlt then
         screenGui.Enabled = not screenGui.Enabled
     end
 end)
 
--- SISTEMA DE AUTO-EXECUÇÃO AO MUDAR DE MAPA
-local teleportService = game:GetService("TeleportService")
-local localPlayer = game:GetService("Players").LocalPlayer
+-- =========================================================================
+-- 5. SISTEMA ANTIFALHAS DE AUTO-EXECUÇÃO (Para teleportes automáticos)
+-- =========================================================================
+local function persistenciaDeScript()
+    local scriptBruto = [[
+        repeat task.wait() until game:IsLoaded()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/refs/heads/main/test'))()
+    ]]
 
-if queue_on_teleport or (syn and syn.queue_on_teleport) then
-    local queueFunction = queue_on_teleport or syn.queue_on_teleport
-    
-    localPlayer.OnTeleport:Connect(function(State)
-        if State == Enum.TeleportState.Started then
-            queueFunction([[
-                loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/refs/heads/main/test'))()
-            ]])
-        end
-    end)
+    if queue_on_teleport then
+        queue_on_teleport(scriptBruto)
+    elseif syn and syn.queue_on_teleport then
+        syn.queue_on_teleport(scriptBruto)
+    elseif fluxus and fluxus.queue_on_teleport then
+        fluxus.queue_on_teleport(scriptBruto)
+    end
 end
+
+local conexaoTeleport
+conexaoTeleport = localPlayer.OnTeleport:Connect(function(State)
+    if not scriptAtivo then conexaoTeleport:Disconnect() return end
+    if State == Enum.TeleportState.Started or State == Enum.TeleportState.InProgress then
+        persistenciaDeScript()
+    end
+end)
