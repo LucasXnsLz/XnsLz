@@ -37,7 +37,7 @@ nomeLabel.Position = UDim2.new(0.96, 0, -0.017, 0)
 nomeLabel.Font = Enum.Font.SourceSans
 -- Ativa a escala automática do texto para que a letra não mude de tamanho bizarramente em telas 4K ou HD
 nomeLabel.TextScaled = false
-nomeLabel.TextSize = 30
+nomeLabel.TextSize = 34
 nomeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 nomeLabel.TextXAlignment = Enum.TextXAlignment.Right
 nomeLabel.BackgroundTransparency = 1
@@ -49,7 +49,7 @@ nomeLabel.Parent = screenGui
 -- =========================================================================
 local bordaTexto = Instance.new("UIStroke")
 bordaTexto.Name = "BordaTexto"
-bordaTexto.Thickness = 0.3               -- Define a espessura da borda desejada
+bordaTexto.Thickness = 0.1              -- Define a espessura da borda desejada
 bordaTexto.Color = Color3.fromRGB(0, 0, 0) -- Define a cor preta para a borda
 bordaTexto.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual -- Garante o contorno do texto
 bordaTexto.Parent = nomeLabel
@@ -61,7 +61,7 @@ screenGui.Parent = playerGui
 -- FUNÇÃO PADRÃO: Altera o texto mantendo o espaçamento original
 local function atualizarPlacar(textoEsquerda, textoDireita)
     if textoDireita then
-        nomeLabel.Text = tostring(textoEsquerda) .. ":                                             " .. tostring(textoDireita)
+        nomeLabel.Text = tostring(textoEsquerda) .. ":                                          " .. tostring(textoDireita)
     else
         nomeLabel.Text = tostring(textoEsquerda)
     end
@@ -118,7 +118,9 @@ end)
 
 -- SISTEMA DE AUTO-EXECUÇÃO AO MUDAR DE MAPA
 local teleportService = game:GetService("TeleportService")
-if queue_on_teleport or syn and syn.queue_on_teleport then
+local localPlayer = game:GetService("Players").LocalPlayer
+
+if queue_on_teleport or (syn and syn.queue_on_teleport) then
     local queueFunction = queue_on_teleport or syn.queue_on_teleport
     
     localPlayer.OnTeleport:Connect(function(State)
