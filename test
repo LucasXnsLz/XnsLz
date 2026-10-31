@@ -8,8 +8,8 @@ local localPlayer = Players.LocalPlayer
 
 -- Se o jogador ainda for nil, espera até ele existir
 while not localPlayer do
-	task.wait(0.1)
-	localPlayer = Players.LocalPlayer
+    task.wait(0.1)
+    localPlayer = Players.LocalPlayer
 end
 
 -- ========================================================================= --
@@ -29,30 +29,45 @@ local ID_SCRIPT = "ConsoleHeaderGui"
 -- Remove a GUI antiga se ela já existir na tela
 local antigaGui = playerGui:FindFirstChild(ID_SCRIPT)
 if antigaGui then
-	antigaGui:Destroy()
+    antigaGui:Destroy()
 end
 
 -- Interrompe loops de execuções anteriores para poupar memória
 if _G.CancelarThreadAntigaXnsLz then
-	_G.CancelarThreadAntigaXnsLz()
+    _G.CancelarThreadAntigaXnsLz()
 end
 
 local scriptAtivo = true
 _G.CancelarThreadAntigaXnsLz = function()
-	scriptAtivo = false
+    scriptAtivo = false
 end
 
 -- ========================================================================= --
--- 1. DESATIVA A LISTA PADRÃO DO ROBLOX (LEADERBOARD)                        --
+-- 1. DESATIVA A LISTA PADRÃO DO ROBLOX (LEADERBOARD) - CORRIGIDO E FORÇADO --
 -- ========================================================================= --
 task.spawn(function()
-	local sucess = false
-	while not sucess and scriptAtivo do
-		sucess = pcall(function()
-			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
-		end)
-		task.wait(0.5)
-	end
+    -- Espera o jogo e a interface principal carregarem completamente
+    if not game:IsLoaded() then game.Loaded:Wait() end
+    task.wait(2) 
+    
+    -- Loop de insistência: tenta desativar por 10 segundos até funcionar
+    for i = 1, 20 do
+        if not scriptAtivo then break end
+        
+        -- Método 1: SetCoreGuiEnabled (Geral)
+        pcall(function()
+            StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+        end)
+        
+        -- Método 2: SetCore (Especifico para CoreGuis teimosas)
+        pcall(function()
+            StarterGui:SetCore("CoreGuiChatConnections", {
+                PlayerListEnabled = false
+            })
+        end)
+        
+        task.wait(0.5)
+    end
 end)
 
 -- ========================================================================= --
@@ -92,7 +107,7 @@ bordaTextoNome.Parent = nomeLabel
 -- Label Dinâmico apenas para os Números (Valores que mudam)
 local valorLabel = Instance.new("TextLabel")
 valorLabel.Size = UDim2.new(0.5, 0, 1, 0)
-valorLabel.Position = UDim2.new(0.5, 259, 0, 0) -- 5 pixels de espaçamento após o nome
+valorLabel.Position = UDim2.new(0.5, 250, 0, 0) -- CORRIGIDO: Espaçamento de 5 pixels real (antes estava 259 e jogava o texto para fora da tela)
 valorLabel.Font = Enum.Font.SourceSans
 valorLabel.TextSize = 36
 valorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -110,109 +125,108 @@ screenGui.Parent = playerGui
 
 -- Função auxiliar para atualizar o placar separadamente
 local function atualizarPlacar(textoEsquerda, textoDireita)
-	if not scriptAtivo then return end
-	if textoDireita then
-		nomeLabel.Text = tostring(textoEsquerda) .. ":"         
-		valorLabel.Text = tostring(textoDireita)
-	else
-		nomeLabel.Text = tostring(textoEsquerda)
-		valorLabel.Text = ""
-	end
+    if not scriptAtivo then return end
+    if textoDireita then
+        nomeLabel.Text = tostring(textoEsquerda) .. ":"
+        valorLabel.Text = tostring(textoDireita)
+    else
+        nomeLabel.Text = tostring(textoEsquerda)
+        valorLabel.Text = ""
+    end
 end
 
 -- ========================================================================= --
 -- 3. VERIFICAÇÃO DE MAPA E LEADERSTATS (Blox Fruits vs Outros Jogos)        --
 -- ========================================================================= --
 task.spawn(function()
-	local placeId = game.PlaceId
-	local leaderstats = localPlayer:WaitForChild("leaderstats", 20)
-	
-	if not leaderstats or not scriptAtivo then
-		nomeLabel.Text = ""
-		valorLabel.Text = ""
-		return
-	end
-	
-	-- IDs de mapas do Blox Fruits (Sea 1, Sea 2 e Sea 3)
-	if placeId == 7449423635 or placeId == 4442272183 or placeId == 2753915549 then
-		local statusPrincipal = leaderstats:WaitForChild("Bounty/Honor", 20)
-		if statusPrincipal and scriptAtivo then
-			atualizarPlacar("Bounty/Honor", statusPrincipal.Value)
-			local conexao
-			conexao = statusPrincipal.Changed:Connect(function(novoValor)
-				if not scriptAtivo then
-					conexao:Disconnect()
-					return
-				end
-				atualizarPlacar("Bounty/Honor", novoValor)
-			end)
-		else
-			nomeLabel.Text = ""
-			valorLabel.Text = ""
-		end
-	else
-		-- Para outros jogos, pega o primeiro valor que encontrar no leaderstats
-		local statusPrincipal = leaderstats:GetChildren()[1]
-		if statusPrincipal and (statusPrincipal:IsA("ValueBase") or statusPrincipal:IsA("StringValue")) and scriptAtivo then
-			-- Primeira letra em maiúsculo para fins estéticos (ex: money -> Money)
-			local nomeFormatado = statusPrincipal.Name:gsub("^%l", string.upper)
-			atualizarPlacar(nomeFormatado, statusPrincipal.Value)
-			
-			local conexao
-			conexao = statusPrincipal.Changed:Connect(function(novoValor)
-				if not scriptAtivo then
-					conexao:Disconnect()
-					return
-				end
-				atualizarPlacar(nomeFormatado, novoValor)
-			end)
-		else
-			nomeLabel.Text = ""
-			valorLabel.Text = ""
-		end
-	end
+    local placeId = game.PlaceId
+    local leaderstats = localPlayer:WaitForChild("leaderstats", 20)
+    
+    if not leaderstats or not scriptAtivo then
+        nomeLabel.Text = ""
+        valorLabel.Text = ""
+        return
+    end
+
+    -- IDs de mapas do Blox Fruits (Sea 1, Sea 2 e Sea 3)
+    if placeId == 7449423635 or placeId == 4442272183 or placeId == 2753915549 then
+        local statusPrincipal = leaderstats:WaitForChild("Bounty/Honor", 20)
+        if statusPrincipal and scriptAtivo then
+            atualizarPlacar("Bounty/Honor", statusPrincipal.Value)
+            local conexao
+            conexao = statusPrincipal.Changed:Connect(function(novoValor)
+                if not scriptAtivo then
+                    conexao:Disconnect()
+                    return
+                end
+                atualizarPlacar("Bounty/Honor", novoValor)
+            end)
+        else
+            nomeLabel.Text = ""
+            valorLabel.Text = ""
+        end
+    else
+        -- Para outros jogos, pega o primeiro valor que encontrar no leaderstats
+        local statusPrincipal = leaderstats:GetChildren()[1]
+        if statusPrincipal and (statusPrincipal:IsA("ValueBase") or statusPrincipal:IsA("StringValue")) and scriptAtivo then
+            -- Primeira letra em maiúsculo para fins estéticos (ex: money -> Money)
+            local nomeFormatado = statusPrincipal.Name:gsub("^%l", string.upper)
+            atualizarPlacar(nomeFormatado, statusPrincipal.Value)
+            local conexao
+            conexao = statusPrincipal.Changed:Connect(function(novoValor)
+                if not scriptAtivo then
+                    conexao:Disconnect()
+                    return
+                end
+                atualizarPlacar(nomeFormatado, novoValor)
+            end)
+        else
+            nomeLabel.Text = ""
+            valorLabel.Text = ""
+        end
+    end
 end)
 
 -- ========================================================================= --
--- 4. ATALHO PARA LIGAR/DESLIGAR (Tecla Right-Alt)                           --
+-- 4. ATALHO PARA LIGAR/DESLIGAR (Tecla Right-Alt)                            --
 -- ========================================================================= --
 local conexaoInput
 conexaoInput = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if not scriptAtivo then
-		conexaoInput:Disconnect()
-		return
-	end
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.RightAlt then
-		screenGui.Enabled = not screenGui.Enabled
-	end
+    if not scriptAtivo then
+        conexaoInput:Disconnect()
+        return
+    end
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightAlt then
+        screenGui.Enabled = not screenGui.Enabled
+    end
 end)
 
 -- ========================================================================= --
 -- 5. SISTEMA ANTIFALHAS DE AUTO-EXECUÇÃO (Para teleportes automáticos)      --
 -- ========================================================================= --
 local function persistenciaDeScript()
-	local scriptBruto = [[
-		repeat task.wait() until game:IsLoaded()
-		loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/refs/heads/main/test'))()
-	]]
-	
-	if queue_on_teleport then
-		queue_on_teleport(scriptBruto)
-	elseif syn and syn.queue_on_teleport then
-		syn.queue_on_teleport(scriptBruto)
-	elseif fluxus and fluxus.queue_on_teleport then
-		fluxus.queue_on_teleport(scriptBruto)
-	end
+    local scriptBruto = [[
+        repeat task.wait() until game:IsLoaded()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/LucasXnsLz/XnsLz/refs/heads/main/test'))()
+    ]]
+    
+    if queue_on_teleport then
+        queue_on_teleport(scriptBruto)
+    elseif syn and syn.queue_on_teleport then
+        syn.queue_on_teleport(scriptBruto)
+    elseif fluxus and fluxus.queue_on_teleport then
+        fluxus.queue_on_teleport(scriptBruto)
+    end
 end
 
 local conexaoTeleport
 conexaoTeleport = localPlayer.OnTeleport:Connect(function(State)
-	if not scriptAtivo then
-		conexaoTeleport:Disconnect()
-		return
-	end
-	if State == Enum.TeleportState.Started or State == Enum.TeleportState.InProgress then
-		persistenciaDeScript()
-	end
+    if not scriptAtivo then
+        conexaoTeleport:Disconnect()
+        return
+    end
+    if State == Enum.TeleportState.Started or State == Enum.TeleportState.InProgress then
+        persistenciaDeScript()
+    end
 end)
